@@ -934,9 +934,20 @@
          * @return {string}
          */
         GetCheckBoxAnswer(checkBox) {
-            return checkBox
-                .parentElement.querySelector('.ml-1')
-                .textContent.trim();
+            let text;
+            text = checkBox.parentElement.querySelector('.ml-1').textContent.trim();
+
+            const imagesElements = this._domQuestionBlock.querySelectorAll('.qtext img');
+            for (const imageElement of imagesElements) {
+                let img = new Image(imageElement);
+                let imgData = img.SHA256;
+                if (imgData.length === 0) {
+                    console.error('Image not loaded, perhaps the question will not be identified correctly.');
+                }
+                text += " img:" + imgData;
+            }
+
+            return text;
         }
     }
 
@@ -1112,10 +1123,21 @@
             let answers = [];
             for (const answerCheckboxOption of answerCheckboxOptions) {
                 if (answerCheckboxOption.checked) {
-                    let answer = answerCheckboxOption
+                    let text = answerCheckboxOption
                         .parentElement.querySelector('.ml-1')
                         .textContent.trim();
-                    answers.push(answer);
+            
+                    const imagesElements = this._domQuestionBlock.querySelectorAll('.qtext img');
+                    for (const imageElement of imagesElements) {
+                        let img = new Image(imageElement);
+                        let imgData = img.SHA256;
+                        if (imgData.length === 0) {
+                            console.error('Image not loaded, perhaps the question will not be identified correctly.');
+                        }
+                        text += " img:" + imgData;
+                    }
+            
+                    answers.push(text);
                 }
             }
             return answers;
@@ -1334,7 +1356,6 @@
         if (IsProtectedPage()) {
             DisableProtectedPageRestrictions();
         }
-        console.log("HUITA "+questions[0].TextQuestion.toString())
         const room = CryptoJS.SHA256(questions[0].TextQuestion).toString();
         client = new Client(SERVER_URL, user, room);
         client.RegisterConnectListenerAndSendQuestionData(questions);
