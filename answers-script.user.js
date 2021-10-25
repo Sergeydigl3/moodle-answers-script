@@ -976,7 +976,8 @@
                 }
 
             }
-            return [answer];
+            if (answer) return [answer];
+            else return [];
         }
 
         get OptionsAnswer() {
@@ -1127,7 +1128,7 @@
                         .parentElement.querySelector('.ml-1')
                         .textContent.trim();
             
-                    const imagesElements = this._domQuestionBlock.querySelectorAll('.qtext img');
+                    const imagesElements = this._domAnswerBlock.querySelectorAll('.qtext img');
                     for (const imageElement of imagesElements) {
                         let img = new Image(imageElement);
                         let imgData = img.SHA256;
@@ -1136,7 +1137,6 @@
                         }
                         text += " img:" + imgData;
                     }
-            
                     answers.push(text);
                 }
             }
@@ -1395,7 +1395,17 @@
 
     }
 
+    const black_list = [];
+    function CheckBlackList(){
+        let temp = document.body.querySelector('.menu-action-text').textContent.trim();
+        if (temp!=null)
+            if (black_list.includes(temp)) return 1;
+        return 0;
+    }
+
     function OnDOMReady() {
+        if (CheckBlackList()==1) return ;
+
         questions = GetQuestions(QUESTIONS_SELECTOR);
 
         if (questions.length === 0) {
