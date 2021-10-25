@@ -1356,6 +1356,8 @@
         if (IsProtectedPage()) {
             DisableProtectedPageRestrictions();
         }
+        let review_check = document.getElementById('page-mod-quiz-review');
+        if (review_check) console.log("YES!");
         const room = CryptoJS.SHA256(questions[0].TextQuestion).toString();
         client = new Client(SERVER_URL, user, room);
         client.RegisterConnectListenerAndSendQuestionData(questions);
