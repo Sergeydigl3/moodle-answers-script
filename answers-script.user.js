@@ -441,6 +441,16 @@
             });
         }
 
+        SendNewReviewAnswers(message) {
+            this._socket.emit('add_review', {
+                'user_info': this._user.UserId,
+                'question': message['question'],
+                'is_correct': message['buttonValue'],
+                'answer': message['answer'],
+                'room': this._room
+            });
+        }
+
         GetUserTypeByUserId(userId) {
             if (this._user.UserId === userId) {
                 return 'our';
@@ -1410,7 +1420,7 @@
 
         for (const question of questions) {
             question.CreateHints();
-
+            
             client.callBackArrayUpdateViewersCounter.push((data) => {
                 if (question.TextQuestion === data['question']) {
                     question.ViewerCounter = data['viewers'];
