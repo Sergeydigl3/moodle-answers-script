@@ -834,7 +834,7 @@
             texts = [];
 
             while (child) {
-                console.log(child.nodeName);
+                // console.log(child.nodeName);
                 if (child.nodeName != "DIV") {
                     // texts.push(child.data);
                     text+=child.textContent;
@@ -855,7 +855,7 @@
             const videosElements = this._domQuestionBlock.querySelectorAll('.qtext div .video-js');
             for (const videoElement of videosElements) {
                 const videoData = CryptoJS.SHA256(videoElement.getAttribute('data-setup-lazy')).toString();
-                console.log('VIDEVA ' + videoData);
+                // console.log('VIDEVA ' + videoData);
                 if (videoData.length === 0) {
                     console.error('Videva not loaded, perhaps the question will not be identified correctly.');
                 }
