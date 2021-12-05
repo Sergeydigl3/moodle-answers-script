@@ -400,7 +400,7 @@
         RegisterUpdateViewersListener() {
             // событие вызывается при обновлении счётчика просмотров у вопроса
             this._socket.on('update_viewers', (questionsInfo) => {
-                if(questionsInfo === undefined){
+                if (questionsInfo === undefined) {
                     return;
                 }
                 for (const callBackUpdateViewersCounter of this.callBackArrayUpdateViewersCounter) {
@@ -418,7 +418,7 @@
         RegisterUpdateAnswersListener() {
             // событие вызывается при обновлении каких-то ответов на сервере
             this._socket.on('update_answers', (allQuestionInfo) => {
-                if(allQuestionInfo === undefined){
+                if (allQuestionInfo === undefined) {
                     return;
                 }
                 for (const callBackUpdateAnswersInformation of this.callBackArrayUpdateAnswersInformation) {
@@ -454,7 +454,7 @@
             // событие вызывается при получении нового сообщения в чате
 
             this._socket.on('add_chat_messages', (messages) => {
-                if(messages === undefined){
+                if (messages === undefined) {
                     return;
                 }
                 let processedMessages = [];
@@ -825,8 +825,22 @@
          * @return {string}
          */
         get TextQuestion() {
-            let text;
-            text = this._domQuestionBlock.textContent;
+            let text = "";
+            // let text;
+            // let text = this._domQuestionBlock.innerText;
+
+            var el = this._domQuestionBlock,
+            child = el.firstChild,
+            texts = [];
+
+            while (child) {
+                console.log(child.nodeName);
+                if (child.nodeName != "DIV") {
+                    // texts.push(child.data);
+                    text+=child.textContent;
+                }
+                child = child.nextSibling;
+            }
 
             const imagesElements = this._domQuestionBlock.querySelectorAll('.qtext img');
             for (const imageElement of imagesElements) {
@@ -836,6 +850,16 @@
                     console.error('Image not loaded, perhaps the question will not be identified correctly.');
                 }
                 text += " img:" + imgData;
+            }
+
+            const videosElements = this._domQuestionBlock.querySelectorAll('.qtext div .video-js');
+            for (const videoElement of videosElements) {
+                const videoData = CryptoJS.SHA256(videoElement.getAttribute('data-setup-lazy')).toString();
+                console.log('VIDEVA ' + videoData);
+                if (videoData.length === 0) {
+                    console.error('Videva not loaded, perhaps the question will not be identified correctly.');
+                }
+                text += " video:" + videoData;
             }
 
             return text;
@@ -937,7 +961,7 @@
             let text;
             text = checkBox.parentElement.querySelector('.ml-1').textContent.trim();
 
-            const imagesElements = this._domQuestionBlock.querySelectorAll('.qtext img');
+            const imagesElements = checkBox.parentElement.querySelector('.ml-1').querySelectorAll('img');
             for (const imageElement of imagesElements) {
                 let img = new Image(imageElement);
                 let imgData = img.SHA256;
@@ -1082,7 +1106,7 @@
 
         get Answers() {
             let answer = this.GetAnswerByInput(this._domAnswerBlock.querySelector('input'));
-            if (answer === ''){
+            if (answer === '') {
                 return [];
             }
             return [answer];
@@ -1127,8 +1151,8 @@
                     let text = answerCheckboxOption
                         .parentElement.querySelector('.ml-1')
                         .textContent.trim();
-            
-                    const imagesElements = this._domAnswerBlock.querySelectorAll('.qtext img');
+                    
+                    const imagesElements = answerCheckboxOption.parentElement.querySelector('.ml-1').querySelectorAll('img');
                     for (const imageElement of imagesElements) {
                         let img = new Image(imageElement);
                         let imgData = img.SHA256;
@@ -1169,7 +1193,7 @@
 
         get Answers() {
             let answer = this.GetAnswerByInput(this._domAnswerBlock.querySelector('input'));
-            if (answer === ''){
+            if (answer === '') {
                 return [];
             }
             return [answer];
@@ -1239,7 +1263,7 @@
                 }
                 this._hints[i].HintInfo = optionAnswers;
             }
-            
+
             for (const hint of this._hints) {
                 for (const answer of answers) {
                     if (answer['subquestion'] === '') {
@@ -1253,10 +1277,22 @@
          * @param {HTMLSelectElement}inputElement
          */
         GetAnswerByInput(inputElement) {
-            return inputElement
-                .parentElement.parentElement
-                .querySelector('.text')
-                .textContent.trim();
+            let text;
+            text = inputElement
+            .parentElement.parentElement
+            .querySelector('.text')
+            .textContent.trim()
+
+            const imagesElements = inputElement.parentElement.parentElement.querySelector('.text').querySelectorAll('img');
+            for (const imageElement of imagesElements) {
+                let img = new Image(imageElement);
+                let imgData = img.SHA256;
+                if (imgData.length === 0) {
+                    console.error('Image not loaded, perhaps the question will not be identified correctly.');
+                }
+                text += " img:" + imgData;
+            }
+            return text;
 
         }
     }
@@ -1356,10 +1392,12 @@
         if (IsProtectedPage()) {
             DisableProtectedPageRestrictions();
         }
-        //test
         let review_check = document.getElementById('page-mod-quiz-review');
         if (review_check) console.log("YES!");
-        const room = CryptoJS.SHA256(questions[0].TextQuestion).toString();
+        var url_string = window.location.href;
+        var url = new URL(url_string);
+        // console.log(url.hostname+"::"+url.searchParams.get("cmid"));
+        const room = CryptoJS.SHA256(url.hostname + "::" + url.searchParams.get("cmid")).toString();
         client = new Client(SERVER_URL, user, room);
         client.RegisterConnectListenerAndSendQuestionData(questions);
         client.callBackNewMessageReceived = (message) => {
@@ -1399,15 +1437,15 @@
     }
 
     const black_list = [];
-    function CheckBlackList(){
+    function CheckBlackList() {
         let temp = document.body.querySelector('.menu-action-text').textContent.trim();
-        if (temp!=null)
+        if (temp != null)
             if (black_list.includes(temp)) return 1;
         return 0;
     }
 
     function OnDOMReady() {
-        if (CheckBlackList()==1) return ;
+        if (CheckBlackList() == 1) return;
 
         questions = GetQuestions(QUESTIONS_SELECTOR);
 
