@@ -674,6 +674,14 @@
             stats[0].textContent = info['check'];
             stats[1].textContent = info['correct'];
             stats[2].textContent = info['notCorrect'];
+            // console.log(info);
+            if(info['checked_correct']>info['checked_incorrect']){
+                stats[3].setAttribute("style", "color: green; margin: 0px 5px;");
+                stats[3].textContent = "Ответ верен";
+            } else if (info['checked_correct']<info['checked_incorrect']){
+                stats[3].setAttribute("style", "color: red; margin: 0px 5px;");
+                stats[3].textContent = "Ответ неверен";
+            }
         }
 
         /**
@@ -683,7 +691,7 @@
             let answerParentBlock = this._domAnswerBlock.parentNode;
             let hintHtml = `
                         <div class="script-answers" style="padding-left: 5px; position: relative; display: inline-flex; background: rgb(0 0 (0 / 6%)); border-radius: 4px; font-size: 15px; max-height: 25px;">
-                            ответы: <span title="Выбрали этот ответ" style="margin: 0px 5px;">0</span> | <span style="color: green; margin: 0px 5px;" title="Уверены, что этот ответ правильный">0</span> | <span style="color: red; margin: 0px 5px;" title="Уверены, что этот ответ неправильный">0</span>
+                            ответы: <span title="Выбрали этот ответ" style="margin: 0px 5px;">0</span> | <span style="color: green; margin: 0px 5px;" title="Уверены, что этот ответ правильный">0</span> | <span style="color: red; margin: 0px 5px;" title="Уверены, что этот ответ неправильный">0</span> <span title="Проверенный ответ"></span>
                         </div>`;
             answerParentBlock.insertAdjacentHTML('beforeend', hintHtml);
             this._domHintBlock = answerParentBlock.querySelector('.script-answers');
@@ -1024,14 +1032,18 @@
                 this._hints[i].HintInfo = {
                     check: 0,
                     correct: 0,
-                    notCorrect: 0
+                    notCorrect: 0,
+                    checked_correct: 0,
+                    checked_incorrect: 0,
                 };
                 for (const userAnswer of answers) {
                     if (userAnswer['answer'] === this.GetAnswerByInput(optionsAnswer[i])) {
                         this._hints[i].HintInfo = {
                             check: userAnswer['users'].length,
                             correct: userAnswer['correct'].length,
-                            notCorrect: userAnswer['not_correct'].length
+                            notCorrect: userAnswer['not_correct'].length,
+                            checked_correct: userAnswer['checked_correct'].length,
+                            checked_incorrect: userAnswer['checked_incorrect'].length,
                         };
                         break;
                     }
@@ -1079,14 +1091,18 @@
                 this._hints[i].HintInfo = {
                     check: 0,
                     correct: 0,
-                    notCorrect: 0
+                    notCorrect: 0,
+                    checked_correct: 0,
+                    checked_incorrect: 0,
                 };
                 for (const userAnswer of answers) {
                     if (userAnswer['answer'] === this.GetAnswerByInput(optionsAnswer[i])) {
                         this._hints[i].HintInfo = {
                             check: userAnswer['users'].length,
                             correct: userAnswer['correct'].length,
-                            notCorrect: userAnswer['not_correct'].length
+                            notCorrect: userAnswer['not_correct'].length,
+                            checked_correct: userAnswer['checked_correct'].length,
+                            checked_incorrect: userAnswer['checked_incorrect'].length,
                         };
                         break;
                     }
