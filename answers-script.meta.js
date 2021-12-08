@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         LMS GUAP Answers
-// @version      2.2.0
+// @version      2.3.1
 // @description  moodle test answers!
 // @author       Sergeydigl3
 // @match        *://school.moodledemo.net/*

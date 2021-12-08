@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         LMS GUAP Answers
-// @version      2.2.0
+// @version      2.3.1
 // @description  moodle test answers!
 // @author       Sergeydigl3
 // @match        *://school.moodledemo.net/*
@@ -642,10 +642,10 @@
                 let verified_answer = '';
                 let verified_style = '';
                 if (userAnswer['checked_correct'].length > userAnswer['checked_incorrect'].length) {
-                    verified_style = "color: green; margin: 0px 5px;";
+                    verified_style = "color: green; margin: 0px 5px; white-space: nowrap;";
                     verified_answer = "Ответ верен";
                 } else if (userAnswer['checked_correct'].length < userAnswer['checked_incorrect'].length) {
-                    verified_style = "color: red; margin: 0px 5px;";
+                    verified_style = "color: red; margin: 0px 5px; white-space: nowrap;";
                     verified_answer = "Ответ неверен";
                 }
                 let hintHtml = `<div><span style="color: black;" style="margin: 0px 5px;">${userAnswer['users'].length} - ответили так</span> |<span class="user-text-answer" style="color: black; margin: 0px 5px;">${userAnswer['answer']}</span><span title="Проверенный ответ" style="${verified_style}">${verified_answer}</span></div>`;
@@ -696,10 +696,10 @@
             stats[2].textContent = info['notCorrect'];
             // console.log(info);
             if (info['checked_correct'] > info['checked_incorrect']) {
-                stats[3].setAttribute("style", "color: green; margin: 0px 5px;");
+                stats[3].setAttribute("style", "color: green; margin: 0px 5px; white-space: nowrap;");
                 stats[3].textContent = "Ответ верен";
             } else if (info['checked_correct'] < info['checked_incorrect']) {
-                stats[3].setAttribute("style", "color: red; margin: 0px 5px;");
+                stats[3].setAttribute("style", "color: red; margin: 0px 5px; white-space: nowrap;");
                 stats[3].textContent = "Ответ неверен";
             }
         }
