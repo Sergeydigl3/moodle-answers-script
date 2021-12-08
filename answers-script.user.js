@@ -19,7 +19,8 @@
     'use strict';
 
     const QUESTIONS_SELECTOR = '.que';
-    const SERVER_URL = 'https://localhost:8443';
+    // const SERVER_URL = 'https://localhost:8443';
+    const SERVER_URL = 'https://guapanswers.ddns.net:20880';
 
     class User {
 
@@ -400,7 +401,7 @@
         RegisterUpdateViewersListener() {
             // событие вызывается при обновлении счётчика просмотров у вопроса
             this._socket.on('update_viewers', (questionsInfo) => {
-                if(questionsInfo === undefined){
+                if (questionsInfo === undefined) {
                     return;
                 }
                 for (const callBackUpdateViewersCounter of this.callBackArrayUpdateViewersCounter) {
@@ -418,7 +419,7 @@
         RegisterUpdateAnswersListener() {
             // событие вызывается при обновлении каких-то ответов на сервере
             this._socket.on('update_answers', (allQuestionInfo) => {
-                if(allQuestionInfo === undefined){
+                if (allQuestionInfo === undefined) {
                     return;
                 }
                 for (const callBackUpdateAnswersInformation of this.callBackArrayUpdateAnswersInformation) {
@@ -441,6 +442,26 @@
             });
         }
 
+        SendNewReviewAnswers(message) {
+            let answer;
+            if (message['type'] == 'match'){
+                answer = {
+                    'subquestion':  message['answer'][0],
+                    'answer':  message['answer'][1]
+                };
+                message['answer'] = answer;
+            }
+                
+            this._socket.emit('add_review', {
+                'user_info': this._user.UserId,
+                'question': message['question'],
+                'is_correct': message['buttonValue'],
+                'answer': message['answer'],
+                'type': message['type'],
+                'room': this._room
+            });
+        }
+
         GetUserTypeByUserId(userId) {
             if (this._user.UserId === userId) {
                 return 'our';
@@ -454,7 +475,7 @@
             // событие вызывается при получении нового сообщения в чате
 
             this._socket.on('add_chat_messages', (messages) => {
-                if(messages === undefined){
+                if (messages === undefined) {
                     return;
                 }
                 let processedMessages = [];
@@ -618,12 +639,21 @@
         set HintInfo(info) {
             let hintAnswers = '';
             for (const userAnswer of info) {
-                let hintHtml = `<div><span style="color: black;" style="margin: 0px 5px;">${userAnswer['users'].length} - ответили так</span> |<span class="user-text-answer" style="color: black; margin: 0px 5px;">${userAnswer['answer']}</span></div>`;
+                let verified_answer = '';
+                let verified_style = '';
+                if (userAnswer['checked_correct'].length > userAnswer['checked_incorrect'].length) {
+                    verified_style = "color: green; margin: 0px 5px;";
+                    verified_answer = "Ответ верен";
+                } else if (userAnswer['checked_correct'].length < userAnswer['checked_incorrect'].length) {
+                    verified_style = "color: red; margin: 0px 5px;";
+                    verified_answer = "Ответ неверен";
+                }
+                let hintHtml = `<div><span style="color: black;" style="margin: 0px 5px;">${userAnswer['users'].length} - ответили так</span> |<span class="user-text-answer" style="color: black; margin: 0px 5px;">${userAnswer['answer']}</span><span title="Проверенный ответ" style="${verified_style}">${verified_answer}</span></div>`;
                 hintAnswers += hintHtml;
             }
             this._domHintBlock.innerHTML = hintAnswers;
         }
-
+        // FIXME: Match question 
         /**
          * @private
          */
@@ -664,6 +694,14 @@
             stats[0].textContent = info['check'];
             stats[1].textContent = info['correct'];
             stats[2].textContent = info['notCorrect'];
+            // console.log(info);
+            if (info['checked_correct'] > info['checked_incorrect']) {
+                stats[3].setAttribute("style", "color: green; margin: 0px 5px;");
+                stats[3].textContent = "Ответ верен";
+            } else if (info['checked_correct'] < info['checked_incorrect']) {
+                stats[3].setAttribute("style", "color: red; margin: 0px 5px;");
+                stats[3].textContent = "Ответ неверен";
+            }
         }
 
         /**
@@ -673,7 +711,7 @@
             let answerParentBlock = this._domAnswerBlock.parentNode;
             let hintHtml = `
                         <div class="script-answers" style="padding-left: 5px; position: relative; display: inline-flex; background: rgb(0 0 (0 / 6%)); border-radius: 4px; font-size: 15px; max-height: 25px;">
-                            ответы: <span title="Выбрали этот ответ" style="margin: 0px 5px;">0</span> | <span style="color: green; margin: 0px 5px;" title="Уверены, что этот ответ правильный">0</span> | <span style="color: red; margin: 0px 5px;" title="Уверены, что этот ответ неправильный">0</span>
+                            ответы: <span title="Выбрали этот ответ" style="margin: 0px 5px;">0</span> | <span style="color: green; margin: 0px 5px;" title="Уверены, что этот ответ правильный">0</span> | <span style="color: red; margin: 0px 5px;" title="Уверены, что этот ответ неправильный">0</span> <span title="Проверенный ответ"></span>
                         </div>`;
             answerParentBlock.insertAdjacentHTML('beforeend', hintHtml);
             this._domHintBlock = answerParentBlock.querySelector('.script-answers');
@@ -822,11 +860,33 @@
         };
 
         /**
+         * @return {any}
+         * @abstract
+         */
+        get AnswersReview() {
+
+        };
+
+        /**
          * @return {string}
          */
         get TextQuestion() {
-            let text;
-            text = this._domQuestionBlock.textContent;
+            let text = "";
+            // let text;
+            // let text = this._domQuestionBlock.innerText;
+
+            var el = this._domQuestionBlock,
+                child = el.firstChild,
+                texts = [];
+
+            while (child) {
+                // console.log(child.nodeName);
+                if (child.nodeName != "DIV") {
+                    // texts.push(child.data);
+                    text += child.textContent;
+                }
+                child = child.nextSibling;
+            }
 
             const imagesElements = this._domQuestionBlock.querySelectorAll('.qtext img');
             for (const imageElement of imagesElements) {
@@ -836,6 +896,16 @@
                     console.error('Image not loaded, perhaps the question will not be identified correctly.');
                 }
                 text += " img:" + imgData;
+            }
+
+            const videosElements = this._domQuestionBlock.querySelectorAll('.qtext div .video-js');
+            for (const videoElement of videosElements) {
+                const videoData = CryptoJS.SHA256(videoElement.getAttribute('data-setup-lazy')).toString();
+                // console.log('VIDEVA ' + videoData);
+                if (videoData.length === 0) {
+                    console.error('Videva not loaded, perhaps the question will not be identified correctly.');
+                }
+                text += " video:" + videoData;
             }
 
             return text;
@@ -934,9 +1004,20 @@
          * @return {string}
          */
         GetCheckBoxAnswer(checkBox) {
-            return checkBox
-                .parentElement.querySelector('.ml-1')
-                .textContent.trim();
+            let text;
+            text = checkBox.parentElement.querySelector('.ml-1').textContent.trim();
+
+            const imagesElements = checkBox.parentElement.querySelector('.ml-1').querySelectorAll('img');
+            for (const imageElement of imagesElements) {
+                let img = new Image(imageElement);
+                let imgData = img.SHA256;
+                if (imgData.length === 0) {
+                    console.error('Image not loaded, perhaps the question will not be identified correctly.');
+                }
+                text += " img:" + imgData;
+            }
+
+            return text;
         }
     }
 
@@ -965,7 +1046,24 @@
                 }
 
             }
-            return [answer];
+            if (answer) return [answer];
+            else return [];
+        }
+
+        get AnswersReview() {
+            let answerCheckboxOptions = this.OptionsAnswer;
+            let answer = {
+                'correct': [],
+                'incorrect': []
+            };
+            for (const answerCheckboxOption of answerCheckboxOptions) {
+                if (answerCheckboxOption.checked) {
+                    if (answerCheckboxOption.parentElement.classList.contains('correct')) answer['correct'].push(this.GetCheckBoxAnswer(answerCheckboxOption));
+                    if (answerCheckboxOption.parentElement.classList.contains('incorrect')) answer['incorrect'].push(this.GetCheckBoxAnswer(answerCheckboxOption));
+                }
+
+            }
+            return answer;
         }
 
         get OptionsAnswer() {
@@ -978,14 +1076,18 @@
                 this._hints[i].HintInfo = {
                     check: 0,
                     correct: 0,
-                    notCorrect: 0
+                    notCorrect: 0,
+                    checked_correct: 0,
+                    checked_incorrect: 0,
                 };
                 for (const userAnswer of answers) {
                     if (userAnswer['answer'] === this.GetAnswerByInput(optionsAnswer[i])) {
                         this._hints[i].HintInfo = {
                             check: userAnswer['users'].length,
                             correct: userAnswer['correct'].length,
-                            notCorrect: userAnswer['not_correct'].length
+                            notCorrect: userAnswer['not_correct'].length,
+                            checked_correct: userAnswer['checked_correct'].length,
+                            checked_incorrect: userAnswer['checked_incorrect'].length,
                         };
                         break;
                     }
@@ -1023,6 +1125,22 @@
             return answers;
         }
 
+        get AnswersReview() {
+            let answerCheckboxOptions = this.OptionsAnswer;
+            let answer = {
+                'correct': [],
+                'incorrect': []
+            };
+            for (const answerCheckboxOption of answerCheckboxOptions) {
+                if (answerCheckboxOption.checked) {
+                    if (answerCheckboxOption.parentElement.classList.contains('correct')) answer['correct'].push(this.GetCheckBoxAnswer(answerCheckboxOption));
+                    if (answerCheckboxOption.parentElement.classList.contains('incorrect')) answer['incorrect'].push(this.GetCheckBoxAnswer(answerCheckboxOption));
+                }
+
+            }
+            return answer;
+        }
+
         get OptionsAnswer() {
             return this._domAnswerBlock.querySelectorAll('input[type=checkbox]');
         }
@@ -1033,14 +1151,18 @@
                 this._hints[i].HintInfo = {
                     check: 0,
                     correct: 0,
-                    notCorrect: 0
+                    notCorrect: 0,
+                    checked_correct: 0,
+                    checked_incorrect: 0,
                 };
                 for (const userAnswer of answers) {
                     if (userAnswer['answer'] === this.GetAnswerByInput(optionsAnswer[i])) {
                         this._hints[i].HintInfo = {
                             check: userAnswer['users'].length,
                             correct: userAnswer['correct'].length,
-                            notCorrect: userAnswer['not_correct'].length
+                            notCorrect: userAnswer['not_correct'].length,
+                            checked_correct: userAnswer['checked_correct'].length,
+                            checked_incorrect: userAnswer['checked_incorrect'].length,
                         };
                         break;
                     }
@@ -1070,10 +1192,28 @@
 
         get Answers() {
             let answer = this.GetAnswerByInput(this._domAnswerBlock.querySelector('input'));
-            if (answer === ''){
+            if (answer === '') {
                 return [];
             }
             return [answer];
+        }
+
+        get AnswersReview() {
+            let el = this._domAnswerBlock.querySelector('input');
+            let answer = {
+                'correct': [],
+                'incorrect': []
+            };
+            let text = this.GetAnswerByInput(el);
+            if (text === '') {
+                return {
+                    'correct': [],
+                    'incorrect': []
+                };
+            }
+            if (el.classList.contains('correct')) answer['correct'].push(text);
+            if (el.classList.contains('incorrect')) answer['incorrect'].push(text);
+            return answer;
         }
 
         get OptionsAnswer() {
@@ -1112,13 +1252,40 @@
             let answers = [];
             for (const answerCheckboxOption of answerCheckboxOptions) {
                 if (answerCheckboxOption.checked) {
-                    let answer = answerCheckboxOption
-                        .parentElement.querySelector('.ml-1')
-                        .textContent.trim();
-                    answers.push(answer);
+                    // let text = answerCheckboxOption
+                    //     .parentElement.querySelector('.ml-1')
+                    //     .textContent.trim();
+
+                    // const imagesElements = answerCheckboxOption.parentElement.querySelector('.ml-1').querySelectorAll('img');
+                    // for (const imageElement of imagesElements) {
+                    //     let img = new Image(imageElement);
+                    //     let imgData = img.SHA256;
+                    //     if (imgData.length === 0) {
+                    //         console.error('Image not loaded, perhaps the question will not be identified correctly.');
+                    //     }
+                    //     text += " img:" + imgData;
+                    // }
+                    answers.push(this.GetCheckBoxAnswer(answerCheckboxOption));
                 }
             }
             return answers;
+        }
+
+        get AnswersReview() {
+            let answerCheckboxOptions = this.OptionsAnswer;
+            let answer = {
+                'correct': [],
+                'incorrect': []
+            };
+
+            for (const answerCheckboxOption of answerCheckboxOptions) {
+                if (answerCheckboxOption.checked) {
+                    if (answerCheckboxOption.parentElement.classList.contains('correct')) answer['correct'].push(this.GetCheckBoxAnswer(answerCheckboxOption));
+                    if (answerCheckboxOption.parentElement.classList.contains('incorrect')) answer['incorrect'].push(this.GetCheckBoxAnswer(answerCheckboxOption));
+                }
+
+            }
+            return answer;
         }
 
         /**
@@ -1147,7 +1314,7 @@
 
         get Answers() {
             let answer = this.GetAnswerByInput(this._domAnswerBlock.querySelector('input'));
-            if (answer === ''){
+            if (answer === '') {
                 return [];
             }
             return [answer];
@@ -1201,6 +1368,31 @@
             return answers;
         }
 
+        get AnswersReview() {
+            /**
+             * @type {NodeListOf<HTMLSelectElement>}
+             */
+            let optionsAnswer = this.OptionsAnswer;
+            let answers = {
+                'correct': [],
+                'incorrect': []
+            };
+
+            for (const optionAnswer of optionsAnswer) {
+                let answer = [this.GetAnswerByInput(optionAnswer)];
+                let selectedOption = optionAnswer.selectedOptions[0];
+                if (selectedOption.index === 0) {
+                    answer.push('none');
+                } else {
+                    answer.push(selectedOption.text);
+                }
+                if (optionAnswer.parentElement.classList.contains('correct')) answers['correct'].push(answer);
+                if (optionAnswer.parentElement.classList.contains('incorrect')) answers['incorrect'].push(answer);
+            }
+            // console.log(answers);
+            return answers;
+        }
+
         get OptionsAnswer() {
             return this._domAnswerBlock.querySelectorAll('select');
         }
@@ -1217,7 +1409,7 @@
                 }
                 this._hints[i].HintInfo = optionAnswers;
             }
-            
+
             for (const hint of this._hints) {
                 for (const answer of answers) {
                     if (answer['subquestion'] === '') {
@@ -1231,10 +1423,22 @@
          * @param {HTMLSelectElement}inputElement
          */
         GetAnswerByInput(inputElement) {
-            return inputElement
+            let text;
+            text = inputElement
                 .parentElement.parentElement
                 .querySelector('.text')
-                .textContent.trim();
+                .textContent.trim()
+
+            const imagesElements = inputElement.parentElement.parentElement.querySelector('.text').querySelectorAll('img');
+            for (const imageElement of imagesElements) {
+                let img = new Image(imageElement);
+                let imgData = img.SHA256;
+                if (imgData.length === 0) {
+                    console.error('Image not loaded, perhaps the question will not be identified correctly.');
+                }
+                text += " img:" + imgData;
+            }
+            return text;
 
         }
     }
@@ -1334,8 +1538,12 @@
         if (IsProtectedPage()) {
             DisableProtectedPageRestrictions();
         }
-        console.log("HUITA "+questions[0].TextQuestion.toString())
-        const room = CryptoJS.SHA256(questions[0].TextQuestion).toString();
+        let review_check = document.getElementById('page-mod-quiz-review');
+        if (review_check) console.log("YES!");
+        var url_string = window.location.href;
+        var url = new URL(url_string);
+        // console.log(url.hostname+"::"+url.searchParams.get("cmid"));
+        const room = CryptoJS.SHA256(url.hostname + "::" + url.searchParams.get("cmid")).toString();
         client = new Client(SERVER_URL, user, room);
         client.RegisterConnectListenerAndSendQuestionData(questions);
         client.callBackNewMessageReceived = (message) => {
@@ -1347,6 +1555,31 @@
         client.RegisterAddChatMessagesListener();
 
         for (const question of questions) {
+            if (review_check) {
+                let review = question.AnswersReview;
+                if (review != undefined) {
+                    for (const correct of review['correct']) {
+                        let message = {
+                            'question': question.TextQuestion,
+                            'buttonValue': true,
+                            'answer': correct,
+                            'type': question.Type
+                        }
+                        client.SendNewReviewAnswers(message);
+                    }
+                    for (const incorrect of review['incorrect']) {
+                        let message = {
+                            'question': question.TextQuestion,
+                            'buttonValue': false,
+                            'answer': incorrect,
+                            'type': question.Type
+                        }
+                        client.SendNewReviewAnswers(message);
+                    }
+                }
+            }
+            // TODO: rightanswerBlockAdd
+            // TODO: Fix short answer 
             question.CreateHints();
 
             client.callBackArrayUpdateViewersCounter.push((data) => {
@@ -1374,7 +1607,17 @@
 
     }
 
+    const black_list = [];
+    function CheckBlackList() {
+        let temp = document.body.querySelector('.menu-action-text').textContent.trim();
+        if (temp != null)
+            if (black_list.includes(temp)) return 1;
+        return 0;
+    }
+
     function OnDOMReady() {
+        if (CheckBlackList() == 1) return;
+
         questions = GetQuestions(QUESTIONS_SELECTOR);
 
         if (questions.length === 0) {
