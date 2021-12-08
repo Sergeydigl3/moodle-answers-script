@@ -442,11 +442,21 @@
         }
 
         SendNewReviewAnswers(message) {
+            let answer;
+            if (message['type'] == 'match'){
+                answer = {
+                    'subquestion':  message['answer'][0],
+                    'answer':  message['answer'][1]
+                };
+                message['answer'] = answer;
+            }
+                
             this._socket.emit('add_review', {
                 'user_info': this._user.UserId,
                 'question': message['question'],
                 'is_correct': message['buttonValue'],
                 'answer': message['answer'],
+                'type': message['type'],
                 'room': this._room
             });
         }
@@ -628,12 +638,21 @@
         set HintInfo(info) {
             let hintAnswers = '';
             for (const userAnswer of info) {
-                let hintHtml = `<div><span style="color: black;" style="margin: 0px 5px;">${userAnswer['users'].length} - ответили так</span> |<span class="user-text-answer" style="color: black; margin: 0px 5px;">${userAnswer['answer']}</span></div>`;
+                let verified_answer = '';
+                let verified_style = '';
+                if (userAnswer['checked_correct'].length > userAnswer['checked_incorrect'].length) {
+                    verified_style = "color: green; margin: 0px 5px;";
+                    verified_answer = "Ответ верен";
+                } else if (userAnswer['checked_correct'].length < userAnswer['checked_incorrect'].length) {
+                    verified_style = "color: red; margin: 0px 5px;";
+                    verified_answer = "Ответ неверен";
+                }
+                let hintHtml = `<div><span style="color: black;" style="margin: 0px 5px;">${userAnswer['users'].length} - ответили так</span> |<span class="user-text-answer" style="color: black; margin: 0px 5px;">${userAnswer['answer']}</span><span title="Проверенный ответ" style="${verified_style}">${verified_answer}</span></div>`;
                 hintAnswers += hintHtml;
             }
             this._domHintBlock.innerHTML = hintAnswers;
         }
-
+        // FIXME: Match question 
         /**
          * @private
          */
@@ -675,10 +694,10 @@
             stats[1].textContent = info['correct'];
             stats[2].textContent = info['notCorrect'];
             // console.log(info);
-            if(info['checked_correct']>info['checked_incorrect']){
+            if (info['checked_correct'] > info['checked_incorrect']) {
                 stats[3].setAttribute("style", "color: green; margin: 0px 5px;");
                 stats[3].textContent = "Ответ верен";
-            } else if (info['checked_correct']<info['checked_incorrect']){
+            } else if (info['checked_correct'] < info['checked_incorrect']) {
                 stats[3].setAttribute("style", "color: red; margin: 0px 5px;");
                 stats[3].textContent = "Ответ неверен";
             }
@@ -840,6 +859,14 @@
         };
 
         /**
+         * @return {any}
+         * @abstract
+         */
+        get AnswersReview() {
+
+        };
+
+        /**
          * @return {string}
          */
         get TextQuestion() {
@@ -848,14 +875,14 @@
             // let text = this._domQuestionBlock.innerText;
 
             var el = this._domQuestionBlock,
-            child = el.firstChild,
-            texts = [];
+                child = el.firstChild,
+                texts = [];
 
             while (child) {
                 // console.log(child.nodeName);
                 if (child.nodeName != "DIV") {
                     // texts.push(child.data);
-                    text+=child.textContent;
+                    text += child.textContent;
                 }
                 child = child.nextSibling;
             }
@@ -1022,6 +1049,22 @@
             else return [];
         }
 
+        get AnswersReview() {
+            let answerCheckboxOptions = this.OptionsAnswer;
+            let answer = {
+                'correct': [],
+                'incorrect': []
+            };
+            for (const answerCheckboxOption of answerCheckboxOptions) {
+                if (answerCheckboxOption.checked) {
+                    if (answerCheckboxOption.parentElement.classList.contains('correct')) answer['correct'].push(this.GetCheckBoxAnswer(answerCheckboxOption));
+                    if (answerCheckboxOption.parentElement.classList.contains('incorrect')) answer['incorrect'].push(this.GetCheckBoxAnswer(answerCheckboxOption));
+                }
+
+            }
+            return answer;
+        }
+
         get OptionsAnswer() {
             return this._domAnswerBlock.querySelectorAll('input[type=radio]');
         }
@@ -1081,6 +1124,22 @@
             return answers;
         }
 
+        get AnswersReview() {
+            let answerCheckboxOptions = this.OptionsAnswer;
+            let answer = {
+                'correct': [],
+                'incorrect': []
+            };
+            for (const answerCheckboxOption of answerCheckboxOptions) {
+                if (answerCheckboxOption.checked) {
+                    if (answerCheckboxOption.parentElement.classList.contains('correct')) answer['correct'].push(this.GetCheckBoxAnswer(answerCheckboxOption));
+                    if (answerCheckboxOption.parentElement.classList.contains('incorrect')) answer['incorrect'].push(this.GetCheckBoxAnswer(answerCheckboxOption));
+                }
+
+            }
+            return answer;
+        }
+
         get OptionsAnswer() {
             return this._domAnswerBlock.querySelectorAll('input[type=checkbox]');
         }
@@ -1138,6 +1197,24 @@
             return [answer];
         }
 
+        get AnswersReview() {
+            let el = this._domAnswerBlock.querySelector('input');
+            let answer = {
+                'correct': [],
+                'incorrect': []
+            };
+            let text = this.GetAnswerByInput(el);
+            if (text === '') {
+                return {
+                    'correct': [],
+                    'incorrect': []
+                };
+            }
+            if (el.classList.contains('correct')) answer['correct'].push(text);
+            if (el.classList.contains('incorrect')) answer['incorrect'].push(text);
+            return answer;
+        }
+
         get OptionsAnswer() {
             let optionAnswer = this._domAnswerBlock.querySelector('input');
             return [optionAnswer];
@@ -1174,23 +1251,40 @@
             let answers = [];
             for (const answerCheckboxOption of answerCheckboxOptions) {
                 if (answerCheckboxOption.checked) {
-                    let text = answerCheckboxOption
-                        .parentElement.querySelector('.ml-1')
-                        .textContent.trim();
-                    
-                    const imagesElements = answerCheckboxOption.parentElement.querySelector('.ml-1').querySelectorAll('img');
-                    for (const imageElement of imagesElements) {
-                        let img = new Image(imageElement);
-                        let imgData = img.SHA256;
-                        if (imgData.length === 0) {
-                            console.error('Image not loaded, perhaps the question will not be identified correctly.');
-                        }
-                        text += " img:" + imgData;
-                    }
-                    answers.push(text);
+                    // let text = answerCheckboxOption
+                    //     .parentElement.querySelector('.ml-1')
+                    //     .textContent.trim();
+
+                    // const imagesElements = answerCheckboxOption.parentElement.querySelector('.ml-1').querySelectorAll('img');
+                    // for (const imageElement of imagesElements) {
+                    //     let img = new Image(imageElement);
+                    //     let imgData = img.SHA256;
+                    //     if (imgData.length === 0) {
+                    //         console.error('Image not loaded, perhaps the question will not be identified correctly.');
+                    //     }
+                    //     text += " img:" + imgData;
+                    // }
+                    answers.push(this.GetCheckBoxAnswer(answerCheckboxOption));
                 }
             }
             return answers;
+        }
+
+        get AnswersReview() {
+            let answerCheckboxOptions = this.OptionsAnswer;
+            let answer = {
+                'correct': [],
+                'incorrect': []
+            };
+
+            for (const answerCheckboxOption of answerCheckboxOptions) {
+                if (answerCheckboxOption.checked) {
+                    if (answerCheckboxOption.parentElement.classList.contains('correct')) answer['correct'].push(this.GetCheckBoxAnswer(answerCheckboxOption));
+                    if (answerCheckboxOption.parentElement.classList.contains('incorrect')) answer['incorrect'].push(this.GetCheckBoxAnswer(answerCheckboxOption));
+                }
+
+            }
+            return answer;
         }
 
         /**
@@ -1273,6 +1367,31 @@
             return answers;
         }
 
+        get AnswersReview() {
+            /**
+             * @type {NodeListOf<HTMLSelectElement>}
+             */
+            let optionsAnswer = this.OptionsAnswer;
+            let answers = {
+                'correct': [],
+                'incorrect': []
+            };
+
+            for (const optionAnswer of optionsAnswer) {
+                let answer = [this.GetAnswerByInput(optionAnswer)];
+                let selectedOption = optionAnswer.selectedOptions[0];
+                if (selectedOption.index === 0) {
+                    answer.push('none');
+                } else {
+                    answer.push(selectedOption.text);
+                }
+                if (optionAnswer.parentElement.classList.contains('correct')) answers['correct'].push(answer);
+                if (optionAnswer.parentElement.classList.contains('incorrect')) answers['incorrect'].push(answer);
+            }
+            // console.log(answers);
+            return answers;
+        }
+
         get OptionsAnswer() {
             return this._domAnswerBlock.querySelectorAll('select');
         }
@@ -1305,9 +1424,9 @@
         GetAnswerByInput(inputElement) {
             let text;
             text = inputElement
-            .parentElement.parentElement
-            .querySelector('.text')
-            .textContent.trim()
+                .parentElement.parentElement
+                .querySelector('.text')
+                .textContent.trim()
 
             const imagesElements = inputElement.parentElement.parentElement.querySelector('.text').querySelectorAll('img');
             for (const imageElement of imagesElements) {
@@ -1435,8 +1554,33 @@
         client.RegisterAddChatMessagesListener();
 
         for (const question of questions) {
+            if (review_check) {
+                let review = question.AnswersReview;
+                if (review != undefined) {
+                    for (const correct of review['correct']) {
+                        let message = {
+                            'question': question.TextQuestion,
+                            'buttonValue': true,
+                            'answer': correct,
+                            'type': question.Type
+                        }
+                        client.SendNewReviewAnswers(message);
+                    }
+                    for (const incorrect of review['incorrect']) {
+                        let message = {
+                            'question': question.TextQuestion,
+                            'buttonValue': false,
+                            'answer': incorrect,
+                            'type': question.Type
+                        }
+                        client.SendNewReviewAnswers(message);
+                    }
+                }
+            }
+            // TODO: rightanswerBlockAdd
+            // TODO: Fix short answer 
             question.CreateHints();
-            
+
             client.callBackArrayUpdateViewersCounter.push((data) => {
                 if (question.TextQuestion === data['question']) {
                     question.ViewerCounter = data['viewers'];
