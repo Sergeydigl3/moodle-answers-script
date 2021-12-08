@@ -19,7 +19,8 @@
     'use strict';
 
     const QUESTIONS_SELECTOR = '.que';
-    const SERVER_URL = 'https://localhost:8443';
+    // const SERVER_URL = 'https://localhost:8443';
+    const SERVER_URL = 'https://guapanswers.ddns.net:20880';
 
     class User {
 
