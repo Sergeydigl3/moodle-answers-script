@@ -12,6 +12,7 @@
 // @require      https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js
 // @require      https://cdn.socket.io/4.1.2/socket.io.min.js
 // @grant        GM_addStyle
+// @grant        GM_info
 // @run-at       document-start
 // ==/UserScript==
 
@@ -19,8 +20,8 @@
     'use strict';
 
     const QUESTIONS_SELECTOR = '.que';
-    // const SERVER_URL = 'https://localhost:8443';
-    const SERVER_URL = 'https://guapanswers.ddns.net:20880';
+    const SERVER_URL = 'https://localhost:8080';
+    // const SERVER_URL = 'https://guapanswers.ddns.net:20880';
 
     class User {
 
@@ -343,6 +344,55 @@
         }
     }
 
+    class QuizInfo {
+
+        /**
+         * @private
+         * @type {string}
+         * @const
+         */
+        _codeHTML = `
+                <p id='script-connection'>Соединение со скриптом: ❌</p>
+                <p id='script-connection-detail'></p>
+                `;
+
+
+        /**
+         * @protected
+         * @type HTMLDivElement
+         */
+        _domQuizInfoBlock;
+
+        /**
+         * @protected
+         * @type HTMLDivElement
+         */
+         _domQuizInfoBlockDetail;
+
+        CreateConnectionBlock() {
+            // Add html chat code in page
+            document.body.querySelector('.quizinfo').insertAdjacentHTML('beforeend', this._codeHTML);
+            // Add css chat code in page
+            // GM_addStyle(this._codeCSS);
+
+            this._domQuizInfoBlock = document.body.querySelector('[id=script-connection]');
+            this._domQuizInfoBlockDetail = document.body.querySelector('[id=script-connection-detail]');
+        }
+
+        /**
+         * @public
+         * @callback
+         */
+        ConnectionSuccess(info){
+            if (info['success']=='ok'){
+                this._domQuizInfoBlock.textContent = 'Соединение со скриптом: ✔';
+            }
+            else {
+                this._domQuizInfoBlockDetail.textContent = info['detail'];
+            }
+        }
+    }
+
     class Client {
         /**
          * @param {string}url
@@ -356,13 +406,14 @@
             * @param {[{userInfo: string, text: string, user: string}]} messages
          */
         callBackNewMessageReceived;
+        callBackPong;
 
         callBackArrayUpdateAnswersInformation = [];
 
         callBackArrayUpdateViewersCounter = [];
 
         constructor(url, user, room) {
-            this._socket = io(url);
+            this._socket = io(url, {transports: ['websocket', 'polling', 'flashsocket']});
 
             /**
              * @private
@@ -398,6 +449,12 @@
             });
         }
 
+        RegisterConnectListnerAndSendPing(){
+            this._socket.on('connect', (message) => {
+                this._socket.emit('ping', GM_info.script.version);
+            });
+        }
+
         RegisterUpdateViewersListener() {
             // событие вызывается при обновлении счётчика просмотров у вопроса
             this._socket.on('update_viewers', (questionsInfo) => {
@@ -423,11 +480,13 @@
                     return;
                 }
                 for (const callBackUpdateAnswersInformation of this.callBackArrayUpdateAnswersInformation) {
-                    let questionInfo = {
-                        question: allQuestionInfo['question'],
-                        answers: allQuestionInfo['answers']
-                    };
-                    callBackUpdateAnswersInformation(questionInfo);
+                    for (let i = 0; i < allQuestionInfo['data'].length; i++) {
+                        let questionInfo = {
+                            question: allQuestionInfo['data'][i]['question'],
+                            answers: allQuestionInfo['data'][i]['answers']
+                        };
+                        callBackUpdateAnswersInformation(questionInfo);
+                    }
                 }
             });
         }
@@ -443,21 +502,9 @@
         }
 
         SendNewReviewAnswers(message) {
-            let answer;
-            if (message['type'] == 'match'){
-                answer = {
-                    'subquestion':  message['answer'][0],
-                    'answer':  message['answer'][1]
-                };
-                message['answer'] = answer;
-            }
-                
             this._socket.emit('add_review', {
                 'user_info': this._user.UserId,
-                'question': message['question'],
-                'is_correct': message['buttonValue'],
-                'answer': message['answer'],
-                'type': message['type'],
+                'body': message,
                 'room': this._room
             });
         }
@@ -491,6 +538,15 @@
                 }
 
                 this.callBackNewMessageReceived(processedMessages);
+            });
+        }
+
+        RegisterPongEventListner(){
+            this._socket.on('pong', (message) => {
+                if (message === undefined) {
+                    return;
+                }
+                this.callBackPong(message);
             });
         }
 
@@ -641,6 +697,7 @@
             for (const userAnswer of info) {
                 let verified_answer = '';
                 let verified_style = '';
+                console.log(userAnswer);
                 if (userAnswer['checked_correct'].length > userAnswer['checked_incorrect'].length) {
                     verified_style = "color: green; margin: 0px 5px; white-space: nowrap;";
                     verified_answer = "Ответ верен";
@@ -1520,6 +1577,10 @@
      */
     let user;
     /**
+     * @type QuizInfoBlock
+     */
+     let quiz;
+    /**
      * @type Chat
      */
     let chat;
@@ -1539,49 +1600,87 @@
             DisableProtectedPageRestrictions();
         }
         let review_check = document.getElementById('page-mod-quiz-review');
+        let QuizInfoCheck = document.querySelector('.quizinfo')
         if (review_check) console.log("YES!");
         var url_string = window.location.href;
         var url = new URL(url_string);
         // console.log(url.hostname+"::"+url.searchParams.get("cmid"));
+        
         const room = CryptoJS.SHA256(url.hostname + "::" + url.searchParams.get("cmid")).toString();
+        if (QuizInfoCheck || questions.length === 0) {
+            if (QuizInfoCheck) {
+                client = new Client(SERVER_URL, user, room);
+                client.callBackPong = (info) => {
+                    quiz.ConnectionSuccess(info);
+                }
+                client.RegisterPongEventListner();
+                quiz.CreateConnectionBlock();
+                client.RegisterConnectListnerAndSendPing();
+            }
+            
+            return;
+        }
         client = new Client(SERVER_URL, user, room);
+        chat.CreateChat();
         client.RegisterConnectListenerAndSendQuestionData(questions);
         client.callBackNewMessageReceived = (message) => {
             chat.AddChatMessage(message);
         };
+        
         chat.callBackSendMessage = (message) => {
             client.SendChatMessage(message);
         };
         client.RegisterAddChatMessagesListener();
-
-        for (const question of questions) {
-            if (review_check) {
+        
+        let reviews_list = [];
+        if (review_check) {
+            for (const question of questions) {
+                
                 let review = question.AnswersReview;
                 if (review != undefined) {
                     for (const correct of review['correct']) {
                         let message = {
                             'question': question.TextQuestion,
-                            'buttonValue': true,
+                            'is_correct': true,
                             'answer': correct,
                             'type': question.Type
                         }
-                        client.SendNewReviewAnswers(message);
+                        let answer;
+                        if (message['type'] == 'match'){
+                            answer = {
+                                'subquestion':  message['answer'][0],
+                                'answer':  message['answer'][1]
+                            };
+                            message['answer'] = answer;
+                        }
+                        reviews_list.push(message);
                     }
                     for (const incorrect of review['incorrect']) {
                         let message = {
                             'question': question.TextQuestion,
-                            'buttonValue': false,
+                            'is_correct': false,
                             'answer': incorrect,
                             'type': question.Type
                         }
-                        client.SendNewReviewAnswers(message);
+                        let answer;
+                        if (message['type'] == 'match'){
+                            answer = {
+                                'subquestion':  message['answer'][0],
+                                'answer':  message['answer'][1]
+                            };
+                            message['answer'] = answer;
+                        }
+                        reviews_list.push(message);
                     }
                 }
             }
-            // TODO: rightanswerBlockAdd
+            client.SendNewReviewAnswers(reviews_list);
+        }
+        
+        for (const question of questions) {
             // TODO: Fix short answer 
             question.CreateHints();
-
+            
             client.callBackArrayUpdateViewersCounter.push((data) => {
                 if (question.TextQuestion === data['question']) {
                     question.ViewerCounter = data['viewers'];
@@ -1620,14 +1719,11 @@
 
         questions = GetQuestions(QUESTIONS_SELECTOR);
 
-        if (questions.length === 0) {
-            return;
-        }
-
+        quiz = new QuizInfo();
         user = new User();
         chat = new Chat();
 
-        chat.CreateChat();
+        
 
         FingerprintJS.load()
             .then(fp => fp.get())
