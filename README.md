@@ -15,7 +15,7 @@
    - [Tampermonkey](https://tampermonkey.net/)
 2. Скрипт можно установить прямо из GitHub, на странице
    **[./answers-script.user.js](./answers-script.user.js)** нажать кнопку "RAW" или
-   **[здесь](https://github.com/Sergeydigl3/answers-script/raw/main/answers-script.user.js)**.
+   **[здесь](https://github.com/Sergeydigl3/moodle-answers-script/raw/main/answers-script.user.js)**.
 3. Подтвердить установку.
 
 ## Обновление
