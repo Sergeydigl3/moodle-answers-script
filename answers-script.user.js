@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         LMS GUAP Answers
-// @version      2.3.1
+// @version      2.3.2
 // @description  moodle test answers!
 // @author       Sergeydigl3
 // @match        *://school.moodledemo.net/*
@@ -20,8 +20,9 @@
     'use strict';
 
     const QUESTIONS_SELECTOR = '.que';
-    const SERVER_URL = 'https://localhost:8080';
-    // const SERVER_URL = 'https://guapanswers.ddns.net:20880';
+    // const SERVER_URL = 'http://192.168.1.188:8080';
+    // const SERVER_URL = 'https://localhost:8080';
+    const SERVER_URL = 'https://guapanswers.ddns.net:20880';
 
     class User {
 
@@ -384,12 +385,17 @@
          * @callback
          */
         ConnectionSuccess(info){
-            if (info['success']=='ok'){
-                this._domQuizInfoBlock.textContent = 'Соединение со скриптом: ✔';
+            if (info['reciever']==client._user.UserId){
+                
+                if (info['success']=='ok'){
+                    this._domQuizInfoBlock.textContent = 'Соединение со скриптом: ✔';
+                }
+                else {
+                    this._domQuizInfoBlockDetail.textContent = info['detail'];
+                }
+
             }
-            else {
-                this._domQuizInfoBlockDetail.textContent = info['detail'];
-            }
+            
         }
     }
 
@@ -451,7 +457,7 @@
 
         RegisterConnectListnerAndSendPing(){
             this._socket.on('connect', (message) => {
-                this._socket.emit('ping', GM_info.script.version);
+                this._socket.emit('ping', [this._user.UserId, GM_info.script.version]);
             });
         }
 
